@@ -123,3 +123,170 @@ describe('list', () => {
     });
 });
 
+describe('read', () => {
+
+    it('should read a post created by the user in existing swot', { plan: 6 }, () => {
+
+        const u1 = new User({ name: 'u1', email: 'u1', password: 'u1' });
+        const swot1 = new SWOT({ name: 'swot1', owner: u1._id });
+        const post1 = new Post({ text: 'p1', author: u1._id, swot: swot1._id, category: 'S' });
+
+        return Promise.all([u1.save(), swot1.save(), post1.save()])
+            .then(() => Service.read(u1._id, swot1._id, post1._id))
+            .then((post) => {
+
+                expect(post).to.be.an.object();
+                expect(post.author).to.exist();
+                return post.author;
+            })
+            .then((author) => {
+
+                expect(author._id).to.exist();
+                expect(author.name).to.exist();
+                expect(author.password).to.not.exist();
+                expect(author.email).to.not.exist();
+            });
+    });
+
+    it('should not read a post created by the user in existing swot but not shared', { plan: 2 }, () => {
+
+        const u1 = new User({ name: 'u1', email: 'u1', password: 'u1' });
+        const u2 = new User({ name: 'u2', email: 'u2', password: 'u2' });
+        const swot1 = new SWOT({ name: 'swot1', owner: u1._id, guests: [u2._id] });
+        const post1 = new Post({ text: 'p1', author: u1._id, swot: swot1._id, category: 'S' });
+
+        return Promise.all([u1.save(), swot1.save(), post1.save()])
+            .then(() => Service.read(u2._id, swot1._id, post1._id))
+            .catch((err) => {
+
+                expect(err).to.exist();
+                expect(err.output.statusCode).to.equal(HttpStatus.NOT_FOUND);
+            });
+    });
+
+    it('should read a post created by another user in existing swot', { plan: 8 }, () => {
+
+        const u1 = new User({ name: 'u1', email: 'u1', password: 'u1' });
+        const u2 = new User({ name: 'u2', email: 'u2', password: 'u2' });
+        const swot1 = new SWOT({ name: 'swot1', owner: u1._id, guests: [u2._id] });
+        const post1 = new Post({ text: 'p1', author: u1._id, swot: swot1._id, category: 'S', guests: [u2._id] });
+
+        return Promise.all([u1.save(), u2.save(), swot1.save(), post1.save()])
+            .then(() => Service.read(u2._id, swot1._id, post1._id))
+            .then((post) => {
+
+                expect(post).to.be.an.object();
+                expect(post.author).to.exist();
+                expect(post.guests[0].name).to.equal('u2');
+                expect(post.guests[0].password).to.not.exist();
+                return post.author;
+            })
+            .then((author) => {
+
+                expect(author._id).to.exist();
+                expect(author.name).to.exist();
+                expect(author.password).to.not.exist();
+                expect(author.email).to.not.exist();
+            });
+    });
+
+    it('should not read a post that does not exist in existing swot', { plan: 2 }, () => {
+
+        const u1 = new User({ name: 'u1', email: 'u1', password: 'u1' });
+        const u2 = new User({ name: 'u2', email: 'u2', password: 'u2' });
+        const swot1 = new SWOT({ name: 'swot1', owner: u1._id, guests: [u2._id] });
+        const post1 = new Post({ text: 'p1', author: u1._id, swot: swot1._id, category: 'S', guests: [u2._id] });
+
+        return Promise.all([u1.save(), u2.save(), post1.save()])
+            .then(() => Service.read(u2._id, swot1._id, post1._id))
+            .catch((err) => {
+
+                expect(err).to.exist();
+                expect(err.output.statusCode).to.equal(HttpStatus.NOT_FOUND);
+            });
+    });
+});
+
+describe('update', () => {
+
+    it('should update a post', { plan: 2 }, () => {
+
+        const u1 = new User({ name: 'u1', email: 'u1', password: 'u1' });
+        const u2 = new User({ name: 'u2', email: 'u2', password: 'u2' });
+        const swot1 = new SWOT({ name: 'swot1', owner: u1._id, guests: [u2._id] });
+        const post1 = new Post({ text: 'p1', author: u1._id, swot: swot1._id, category: 'S', guests: [u2._id] });
+
+        return Promise.all([u1.save(), u2.save(), swot1.save(), post1.save()])
+            .then(() => Service.update(u1._id, swot1._id, post1._id, { text: 'p1 updated' }))
+            .then(() => Post.findById(post1._id).exec())
+            .then((post) => {
+
+                expect(post).to.exist();
+                expect(post.text).to.equal('p1 updated');
+            });
+    });
+
+    it('should not update a post', { plan: 4 }, () => {
+
+        const u1 = new User({ name: 'u1', email: 'u1', password: 'u1' });
+        const u2 = new User({ name: 'u2', email: 'u2', password: 'u2' });
+        const swot1 = new SWOT({ name: 'swot1', owner: u1._id, guests: [u2._id] });
+        const post1 = new Post({ text: 'p1', author: u1._id, swot: swot1._id, category: 'S', guests: [u2._id] });
+
+        return Promise.all([u1.save(), u2.save(), swot1.save(), post1.save()])
+            .then(() => Service.update(u2._id, swot1._id, post1._id, { text: 'p1 updated' }))
+            .catch((err) => {
+
+                expect(err).to.exist();
+                expect(err.output.statusCode).to.equal(HttpStatus.NOT_FOUND);
+            })
+            .then(() => Post.findById(post1._id).exec())
+            .then((post) => {
+
+                expect(post).to.exist();
+                expect(post.text).to.equal('p1');
+            });
+    });
+});
+
+describe('delete', () => {
+
+    it('should delete a post', { plan: 1 }, () => {
+
+        const u1 = new User({ name: 'u1', email: 'u1', password: 'u1' });
+        const u2 = new User({ name: 'u2', email: 'u2', password: 'u2' });
+        const swot1 = new SWOT({ name: 'swot1', owner: u1._id, guests: [u2._id] });
+        const post1 = new Post({ text: 'p1', author: u1._id, swot: swot1._id, category: 'S', guests: [u2._id] });
+
+        return Promise.all([u1.save(), u2.save(), swot1.save(), post1.save()])
+            .then(() => Service.destroy(u1._id, swot1._id, post1._id))
+            .then(() => Post.findById(post1._id).exec())
+            .then((post) => {
+
+                expect(post).to.not.exist();
+            });
+    });
+
+    it('should not delete a post', { plan: 4 }, () => {
+
+        const u1 = new User({ name: 'u1', email: 'u1', password: 'u1' });
+        const u2 = new User({ name: 'u2', email: 'u2', password: 'u2' });
+        const swot1 = new SWOT({ name: 'swot1', owner: u1._id, guests: [u2._id] });
+        const post1 = new Post({ text: 'p1', author: u1._id, swot: swot1._id, category: 'S', guests: [u2._id] });
+
+        return Promise.all([u1.save(), u2.save(), swot1.save(), post1.save()])
+            .then(() => Service.destroy(u2._id, swot1._id, post1._id))
+            .catch((err) => {
+
+                expect(err).to.exist();
+                expect(err.output.statusCode).to.equal(HttpStatus.NOT_FOUND);
+            })
+            .then(() => Post.findById(post1._id).exec())
+            .then((post) => {
+
+                expect(post).to.exist();
+                expect(post.text).to.equal('p1');
+            });
+    });
+});
+
