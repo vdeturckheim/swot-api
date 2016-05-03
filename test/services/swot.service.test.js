@@ -23,7 +23,7 @@ Mongoose.Promise = global.Promise; // Personal choice
 /**
  * Connect once for all tests
  */
-before(() => Mongoose.connect(`mongodb://localhost/swot-home_test_user_service_${Date.now()}`));
+before(() => Mongoose.connect(`mongodb://localhost/swot-api_test_swot_service_${Date.now()}`));
 
 beforeEach(() => {
 
